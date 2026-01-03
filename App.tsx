@@ -15,7 +15,8 @@ import {
   ChevronRight,
   ChevronLeft,
   Globe,
-  Menu
+  Lock,
+  Link as LinkIcon
 } from 'lucide-react';
 import ScannerView from './components/ScannerView';
 import LedgerView from './components/LedgerView';
@@ -33,6 +34,31 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
+  const [hasApiKey, setHasApiKey] = useState(false);
+
+  // --- API Key Handshake (Required for Vercel/Browser SDK) ---
+  useEffect(() => {
+    const checkKey = async () => {
+      // @ts-ignore
+      if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+        // @ts-ignore
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        setHasApiKey(hasKey);
+      }
+    };
+    checkKey();
+  }, []);
+
+  const handleConnectKey = async () => {
+    // @ts-ignore
+    if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+      // @ts-ignore
+      await window.aistudio.openSelectKey();
+      setHasApiKey(true); // Assume success per protocol
+    } else {
+      alert("Ninja Core Interface not found in this environment.");
+    }
+  };
 
   // --- Background Live Agent State ---
   const [isAgentActive, setIsAgentActive] = useState(false);
@@ -158,6 +184,12 @@ const App: React.FC = () => {
     const { isAgentScanning: currentScanning, agentStream: currentStream } = stateRef.current;
     if (currentScanning || !currentStream || !hiddenVideoRef.current) return;
     
+    // Safety check for key selection
+    if (!hasApiKey) {
+      addAgentLog("Scanner error: API Key not selected. Please Link Core in sidebar.", "warn");
+      return;
+    }
+
     const video = hiddenVideoRef.current;
     const canvas = hiddenCanvasRef.current;
     if (video.videoWidth === 0 || video.readyState < 2 || !canvas) return;
@@ -188,14 +220,22 @@ const App: React.FC = () => {
         }
       }
     } catch (e: any) {
-      addAgentLog(`API/Vision Error: ${e.message || "Failed to connect"}`, "warn");
+      const errorMsg = e.message || "Connection failed";
+      addAgentLog(`Vision Error: ${errorMsg}`, "warn");
+      if (errorMsg.includes("Requested entity was not found")) {
+        setHasApiKey(false); // Force re-selection
+      }
     } finally {
       setIsAgentScanning(false);
       setNextScanIn(10);
     }
-  }, [addNewBets, addAgentLog]);
+  }, [addNewBets, addAgentLog, hasApiKey]);
 
   const startAgent = async () => {
+    if (!hasApiKey) {
+      alert("Please link your API Key using the button in the bottom-left sidebar first.");
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: { ideal: 15 }, displaySurface: 'browser' },
@@ -298,12 +338,19 @@ const App: React.FC = () => {
         </div>
 
         <div className={`flex flex-col gap-2 w-full ${isSidebarExpanded ? 'px-2' : 'items-center'}`}>
-          <div className={`rounded-xl transition-all flex items-center gap-3 ${
-            isSidebarExpanded ? 'w-full px-4 py-3 justify-start' : 'w-12 h-12 justify-center'
-          } text-zinc-600`}>
-             <Database className="w-5 h-5 shrink-0" />
-             {isSidebarExpanded && <span className="text-xs font-bold uppercase tracking-widest">Local Node</span>}
-          </div>
+          <button 
+            onClick={handleConnectKey}
+            className={`rounded-xl transition-all flex items-center gap-3 ${
+              isSidebarExpanded ? 'w-full px-4 py-3 justify-start' : 'w-12 h-12 justify-center'
+            } ${hasApiKey ? 'text-emerald-500/60' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20'}`}
+          >
+            {hasApiKey ? <LinkIcon className="w-5 h-5 shrink-0" /> : <Lock className="w-5 h-5 shrink-0" />}
+            {isSidebarExpanded && (
+              <span className="text-xs font-bold uppercase tracking-widest">
+                {hasApiKey ? 'Core Linked' : 'Link Ninja Core'}
+              </span>
+            )}
+          </button>
           
           <button 
             onClick={() => confirm("Reset all local data?") && (localStorage.removeItem(STORAGE_KEY), window.location.reload())}
