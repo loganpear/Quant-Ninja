@@ -8,8 +8,6 @@ import {
   Globe,
   BarChart3,
   ChevronRight,
-  Zap,
-  ArrowRight,
   ShieldAlert
 } from 'lucide-react';
 
@@ -23,35 +21,10 @@ interface DashboardViewProps {
 
 const DashboardView: React.FC<DashboardViewProps> = ({ stats, bets, onSync, isSyncing, inPlay }) => {
   const pendingCount = bets.filter(b => b.status === 'PENDING').length;
-  const netEquity = stats.currentBankroll + inPlay;
-  const netProfit = netEquity - stats.initialBankroll;
+  const netProfit = (stats.currentBankroll + inPlay) - stats.initialBankroll;
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
-      {/* Automation Call-to-Action */}
-      {bets.length === 0 && (
-        <div className="p-1 border border-emerald-500/20 rounded-[2rem] bg-emerald-500/5">
-          <div className="p-8 border border-emerald-500/10 rounded-[1.8rem] bg-zinc-950 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-[0.2em]">
-                <Zap className="w-4 h-4 fill-current" />
-                Autonomous Discovery
-              </div>
-              <h2 className="text-2xl font-bold">No data detected in your simulation.</h2>
-              <p className="text-zinc-500 text-sm max-w-md">Let the Ninja AI scan the web for current +EV opportunities from Crazy Ninja Odds and other sources to start your session.</p>
-            </div>
-            <button 
-              onClick={onSync}
-              disabled={isSyncing}
-              className="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl transition-all shadow-xl shadow-emerald-600/20 flex items-center gap-3 group whitespace-nowrap"
-            >
-              {isSyncing ? "Scanning Web..." : "Run AI Web Scan"}
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
-          </div>
-        </div>
-      )}
-
+    <div className="space-y-8 max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           { label: 'Available Cash', value: `$${stats.currentBankroll.toLocaleString(undefined, { minimumFractionDigits: 0 })}`, icon: Activity, color: 'text-emerald-400', sub: 'Ready for placement' },
@@ -59,7 +32,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ stats, bets, onSync, isSy
           { label: 'Total ROI', value: `${stats.roi.toFixed(2)}%`, icon: TrendingUp, color: netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400', sub: 'Net Equity growth' },
           { label: 'Win Rate', value: `${stats.winRate.toFixed(1)}%`, icon: Target, color: 'text-blue-400', sub: 'Settled accuracy' }
         ].map((stat, i) => (
-          <div key={i} className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl shadow-sm hover:border-zinc-700 transition-all group relative overflow-hidden">
+          <div key={i} className="bg-zinc-900/40 border border-zinc-800 p-6 rounded-3xl shadow-sm hover:border-zinc-700 transition-all group relative overflow-hidden">
             <div className="flex items-center justify-between mb-4">
               <div className={`p-2 rounded-xl bg-zinc-950 border border-zinc-800 ${stat.color} group-hover:scale-110 transition-transform`}>
                 <stat.icon className="w-5 h-5" />
@@ -73,7 +46,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ stats, bets, onSync, isSy
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+        <div className="lg:col-span-2 bg-zinc-900/40 border border-zinc-800 rounded-3xl p-6">
           <div className="flex items-center justify-between mb-8">
             <h3 className="font-bold flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-emerald-400" />
@@ -89,7 +62,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ stats, bets, onSync, isSy
                 <div 
                   key={i} 
                   className={`flex-1 rounded-t-lg transition-all hover:opacity-80 relative group ${
-                    bet.status === 'WON' ? 'bg-emerald-500/50' : 
+                    bet.status === 'WON' ? 'bg-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 
                     bet.status === 'LOST' ? 'bg-rose-500/50' : 'bg-zinc-800'
                   }`}
                   style={{ height: `${h}%` }}
@@ -103,33 +76,33 @@ const DashboardView: React.FC<DashboardViewProps> = ({ stats, bets, onSync, isSy
               );
             })}
             {bets.length === 0 && (
-              <div className="w-full h-full flex flex-col items-center justify-center border-2 border-zinc-800 border-dashed rounded-2xl">
-                <p className="text-zinc-600 text-sm font-medium">Capture data via Ninja Vision to see metrics.</p>
+              <div className="w-full h-full flex flex-col items-center justify-center border-2 border-zinc-800 border-dashed rounded-2xl opacity-40">
+                <p className="text-zinc-500 text-sm font-medium">Capture data via Ninja Vision to see metrics.</p>
               </div>
             )}
           </div>
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+        <div className="bg-zinc-900/40 border border-zinc-800 rounded-3xl p-6">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-bold flex items-center gap-2">
+            <h3 className="font-bold flex items-center gap-2 text-zinc-200">
               <Globe className="w-4 h-4 text-purple-400" />
               Exposure Breakdown
             </h3>
           </div>
           <div className="space-y-5">
             {['FanDuel', 'DraftKings', 'BetMGM', 'Caesars'].map(book => {
-              const bookBets = bets.filter(b => b.bookie.includes(book) || book.includes(b.bookie));
+              const bookBets = bets.filter(b => b.bookie.toLowerCase().includes(book.toLowerCase()));
               const percent = (bookBets.length / (bets.length || 1)) * 100;
               return (
-                <div key={book} className="space-y-2">
-                  <div className="flex justify-between text-xs font-bold">
-                    <span className="text-zinc-300">{book}</span>
-                    <span className="text-zinc-500">{bookBets.length} trades</span>
+                <div key={book} className="space-y-2 group cursor-default">
+                  <div className="flex justify-between text-xs font-bold transition-colors group-hover:text-zinc-100">
+                    <span className="text-zinc-400">{book}</span>
+                    <span className="text-zinc-600 group-hover:text-zinc-400">{bookBets.length} trades</span>
                   </div>
-                  <div className="h-2 w-full bg-zinc-950 rounded-full overflow-hidden">
+                  <div className="h-2 w-full bg-zinc-950 rounded-full overflow-hidden border border-zinc-800/50">
                     <div 
-                      className="h-full bg-emerald-500/30 rounded-full transition-all duration-1000" 
+                      className="h-full bg-emerald-500/30 rounded-full transition-all duration-1000 group-hover:bg-emerald-500/50" 
                       style={{ width: `${percent}%` }}
                     />
                   </div>
@@ -138,7 +111,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ stats, bets, onSync, isSy
             })}
           </div>
           <div className="mt-10 pt-6 border-t border-zinc-800">
-             <button className="w-full py-4 bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 rounded-2xl text-[11px] font-bold text-zinc-400 flex items-center justify-center gap-2 transition-all">
+             <button className="w-full py-4 bg-zinc-950/50 hover:bg-zinc-900 border border-zinc-800 rounded-2xl text-[11px] font-black uppercase tracking-widest text-zinc-500 hover:text-zinc-300 flex items-center justify-center gap-2 transition-all">
                Deep Risk Analytics
                <ChevronRight className="w-3 h-3" />
              </button>

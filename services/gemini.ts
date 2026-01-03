@@ -2,9 +2,6 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { Bet } from "../types";
 
-/**
- * Specifically tuned for real-time vision processing of betting dashboards.
- */
 export const processLiveFrame = async (base64Image: string): Promise<{ bets: Bet[], isValid: boolean }> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const imagePart = {
@@ -18,11 +15,10 @@ export const processLiveFrame = async (base64Image: string): Promise<{ bets: Bet
     You are an expert sports betting analyst. Analyze this screenshot.
     
     CRITICAL VALIDATION:
-    Is this image clearly a sports betting dashboard or +EV tool (like Crazy Ninja Odds, OddsJam, etc.) containing a table of bet lines?
+    Is this image clearly a sports betting dashboard or +EV tool containing a table of bet lines?
     A valid dashboard MUST show columns for: Event/Matchup, Market/Line, Odds, and ideally EV%.
-    If it is just a generic website, desktop, or non-betting page, set "isValid" to false.
 
-    DATA EXTRACTION (only if isValid is true):
+    DATA EXTRACTION:
     1. Scan for rows that represent a +EV bet.
     2. Extract: Event, Market, Odds (Decimal), Bookie, and EV%.
     3. Only include bets with a POSITIVE EV.
@@ -61,7 +57,6 @@ export const processLiveFrame = async (base64Image: string): Promise<{ bets: Bet
     });
 
     const data = JSON.parse(response.text || '{"isValid": false, "bets": []}');
-    
     if (!data.isValid) return { bets: [], isValid: false };
 
     const finalizedBets = data.bets.map((b: any) => ({
@@ -74,14 +69,32 @@ export const processLiveFrame = async (base64Image: string): Promise<{ bets: Bet
 
     return { bets: finalizedBets, isValid: true };
   } catch (e) {
-    console.error("Vision Processing Error:", e);
     return { bets: [], isValid: false };
   }
 };
 
 export const syncBetsFromWeb = async (): Promise<Bet[]> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `Search for the most recent +EV sports bets from leading odds sites like CrazyNinjaOdds. Return JSON array: {event, market, odds, bookie, ev}.`;
+  const now = new Date();
+  const dateStr = now.toLocaleDateString();
+  const timeStr = now.toLocaleTimeString();
+
+  const prompt = `
+    CURRENT TIMESTAMP: ${dateStr} ${timeStr}
+    
+    URGENT: Search for LIVE or UPCOMING +EV (Positive Expected Value) sports bets currently available in the market. 
+    Use sources like Crazy Ninja Odds, OddsJam, or similar fresh betting tools.
+    
+    STRICT RULES:
+    1. DO NOT include any bets for games that have already started.
+    2. DO NOT include any bets for games that have finished.
+    3. Every bet MUST be available to be placed RIGHT NOW.
+    4. Focus on major sports (NBA, NHL, MLB, Soccer).
+    
+    Return a JSON array of objects: { "event": string, "market": string, "odds": number, "bookie": string, "ev": number }.
+    Include the EV percentage.
+  `;
+
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -94,7 +107,11 @@ export const syncBetsFromWeb = async (): Promise<Bet[]> => {
           items: {
             type: Type.OBJECT,
             properties: {
-              event: { type: Type.STRING }, market: { type: Type.STRING }, odds: { type: Type.NUMBER }, ev: { type: Type.NUMBER }, bookie: { type: Type.STRING },
+              event: { type: Type.STRING }, 
+              market: { type: Type.STRING }, 
+              odds: { type: Type.NUMBER }, 
+              ev: { type: Type.NUMBER }, 
+              bookie: { type: Type.STRING },
             },
             required: ['event', 'market', 'odds', 'ev', 'bookie']
           }
@@ -114,7 +131,10 @@ export const syncBetsFromWeb = async (): Promise<Bet[]> => {
       stake: 0,
       groundingSources
     }));
-  } catch (e) { return []; }
+  } catch (e) { 
+    console.error("Web Sync Error:", e);
+    return []; 
+  }
 };
 
 export const extractBetsFromImage = async (base64Image: string): Promise<Bet[]> => {
@@ -124,7 +144,19 @@ export const extractBetsFromImage = async (base64Image: string): Promise<Bet[]> 
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: { parts: [imagePart, { text: prompt }] },
-    config: { responseMimeType: 'application/json' }
+    config: { 
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            event: { type: Type.STRING }, market: { type: Type.STRING }, odds: { type: Type.NUMBER }, ev: { type: Type.NUMBER }, bookie: { type: Type.STRING },
+          },
+          required: ['event', 'market', 'odds', 'ev', 'bookie']
+        }
+      }
+    }
   });
   const parsed = JSON.parse(response.text || '[]');
   return parsed
@@ -148,15 +180,11 @@ export const settleBetsWithSearch = async (bets: Bet[]): Promise<Bet[]> => {
     If result is not yet available, return PENDING.`;
 
     try {
-      const responsePromise = ai.models.generateContent({ 
+      const response = await ai.models.generateContent({ 
         model: 'gemini-3-flash-preview', 
         contents: prompt, 
         config: { tools: [{ googleSearch: {} }] } 
       });
-      const timeoutPromise = new Promise<null>((_, reject) => 
-        setTimeout(() => reject(new Error('Request timed out')), 15000)
-      );
-      const response = await Promise.race([responsePromise, timeoutPromise]);
       if (!response || !response.text) return;
 
       const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;

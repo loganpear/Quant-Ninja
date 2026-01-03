@@ -7,7 +7,8 @@ export enum AppView {
   LIVE_AGENT = 'LIVE_AGENT',
   CHAT = 'CHAT',
   VISION = 'VISION',
-  CANVAS = 'CANVAS'
+  CANVAS = 'CANVAS',
+  MARKET_PULSE = 'MARKET_PULSE'
 }
 
 export type BetStatus = 'PENDING' | 'WON' | 'LOST' | 'VOID';
