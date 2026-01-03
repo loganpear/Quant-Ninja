@@ -15,8 +15,6 @@ import {
   ChevronRight,
   ChevronLeft,
   Globe,
-  Lock,
-  Link,
   Menu
 } from 'lucide-react';
 import ScannerView from './components/ScannerView';
@@ -35,23 +33,6 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
-  const [hasApiKey, setHasApiKey] = useState(false);
-
-  // Check for API Key selection on mount
-  useEffect(() => {
-    const checkKey = async () => {
-      // @ts-ignore
-      const hasKey = await window.aistudio.hasSelectedApiKey();
-      setHasApiKey(hasKey);
-    };
-    checkKey();
-  }, []);
-
-  const handleConnectKey = async () => {
-    // @ts-ignore
-    await window.aistudio.openSelectKey();
-    setHasApiKey(true); // Assume success per instructions
-  };
 
   // --- Background Live Agent State ---
   const [isAgentActive, setIsAgentActive] = useState(false);
@@ -177,12 +158,6 @@ const App: React.FC = () => {
     const { isAgentScanning: currentScanning, agentStream: currentStream } = stateRef.current;
     if (currentScanning || !currentStream || !hiddenVideoRef.current) return;
     
-    // Safety check for API Key
-    if (!process.env.API_KEY && !hasApiKey) {
-      addAgentLog("Scanner error: API Key not selected.", "warn");
-      return;
-    }
-
     const video = hiddenVideoRef.current;
     const canvas = hiddenCanvasRef.current;
     if (video.videoWidth === 0 || video.readyState < 2 || !canvas) return;
@@ -202,8 +177,7 @@ const App: React.FC = () => {
         const result = await processLiveFrame(frameData);
         
         if (!result.isValid) {
-          addAgentLog("Invalid viewport detected. Auto-terminating link.", "warn");
-          stopAgent();
+          addAgentLog("No active dashboard detected in viewport.", "warn");
           return;
         }
 
@@ -214,15 +188,12 @@ const App: React.FC = () => {
         }
       }
     } catch (e: any) {
-      addAgentLog(`Vision error: ${e.message}`, "warn");
-      if (e.message.includes("entity was not found")) {
-        setHasApiKey(false);
-      }
+      addAgentLog(`API/Vision Error: ${e.message || "Failed to connect"}`, "warn");
     } finally {
       setIsAgentScanning(false);
       setNextScanIn(10);
     }
-  }, [addNewBets, addAgentLog, stopAgent, hasApiKey]);
+  }, [addNewBets, addAgentLog]);
 
   const startAgent = async () => {
     try {
@@ -327,19 +298,12 @@ const App: React.FC = () => {
         </div>
 
         <div className={`flex flex-col gap-2 w-full ${isSidebarExpanded ? 'px-2' : 'items-center'}`}>
-          <button 
-            onClick={handleConnectKey}
-            className={`rounded-xl transition-all flex items-center gap-3 ${
-              isSidebarExpanded ? 'w-full px-4 py-3 justify-start' : 'w-12 h-12 justify-center'
-            } ${hasApiKey ? 'text-zinc-500 hover:text-zinc-300' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20'}`}
-          >
-            {hasApiKey ? <Link className="w-5 h-5 shrink-0" /> : <Lock className="w-5 h-5 shrink-0" />}
-            {isSidebarExpanded && (
-              <span className="text-xs font-bold uppercase tracking-widest">
-                {hasApiKey ? 'Core Linked' : 'Link Ninja Core'}
-              </span>
-            )}
-          </button>
+          <div className={`rounded-xl transition-all flex items-center gap-3 ${
+            isSidebarExpanded ? 'w-full px-4 py-3 justify-start' : 'w-12 h-12 justify-center'
+          } text-zinc-600`}>
+             <Database className="w-5 h-5 shrink-0" />
+             {isSidebarExpanded && <span className="text-xs font-bold uppercase tracking-widest">Local Node</span>}
+          </div>
           
           <button 
             onClick={() => confirm("Reset all local data?") && (localStorage.removeItem(STORAGE_KEY), window.location.reload())}
