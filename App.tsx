@@ -14,7 +14,10 @@ import {
   Database,
   ChevronRight,
   ChevronLeft,
-  Globe
+  Globe,
+  Lock,
+  Link,
+  Menu
 } from 'lucide-react';
 import ScannerView from './components/ScannerView';
 import LedgerView from './components/LedgerView';
@@ -32,6 +35,23 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
+  const [hasApiKey, setHasApiKey] = useState(false);
+
+  // Check for API Key selection on mount
+  useEffect(() => {
+    const checkKey = async () => {
+      // @ts-ignore
+      const hasKey = await window.aistudio.hasSelectedApiKey();
+      setHasApiKey(hasKey);
+    };
+    checkKey();
+  }, []);
+
+  const handleConnectKey = async () => {
+    // @ts-ignore
+    await window.aistudio.openSelectKey();
+    setHasApiKey(true); // Assume success per instructions
+  };
 
   // --- Background Live Agent State ---
   const [isAgentActive, setIsAgentActive] = useState(false);
@@ -157,6 +177,12 @@ const App: React.FC = () => {
     const { isAgentScanning: currentScanning, agentStream: currentStream } = stateRef.current;
     if (currentScanning || !currentStream || !hiddenVideoRef.current) return;
     
+    // Safety check for API Key
+    if (!process.env.API_KEY && !hasApiKey) {
+      addAgentLog("Scanner error: API Key not selected.", "warn");
+      return;
+    }
+
     const video = hiddenVideoRef.current;
     const canvas = hiddenCanvasRef.current;
     if (video.videoWidth === 0 || video.readyState < 2 || !canvas) return;
@@ -189,11 +215,14 @@ const App: React.FC = () => {
       }
     } catch (e: any) {
       addAgentLog(`Vision error: ${e.message}`, "warn");
+      if (e.message.includes("entity was not found")) {
+        setHasApiKey(false);
+      }
     } finally {
       setIsAgentScanning(false);
       setNextScanIn(10);
     }
-  }, [addNewBets, addAgentLog, stopAgent]);
+  }, [addNewBets, addAgentLog, stopAgent, hasApiKey]);
 
   const startAgent = async () => {
     try {
@@ -250,7 +279,7 @@ const App: React.FC = () => {
       </div>
 
       <nav className={`border-r border-zinc-800 flex flex-col py-8 gap-8 bg-[#09090b] z-50 transition-all duration-300 ease-in-out ${isSidebarExpanded ? 'w-64 px-4' : 'w-20 px-3 items-center'}`}>
-        <div className={`flex items-center gap-3 ${isSidebarExpanded ? 'px-2' : 'justify-center w-full'}`}>
+        <div className={`flex items-center gap-3 mb-2 ${isSidebarExpanded ? 'px-2' : 'justify-center w-full'}`}>
           <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0">
             <Zap className="text-black w-6 h-6 fill-current" />
           </div>
@@ -259,7 +288,7 @@ const App: React.FC = () => {
           )}
         </div>
         
-        <div className={`flex flex-col gap-4 flex-1 w-full ${isSidebarExpanded ? '' : 'items-center'}`}>
+        <div className={`flex flex-col gap-2 flex-1 w-full ${isSidebarExpanded ? '' : 'items-center'}`}>
           {navItems.map(item => (
             <button
               key={item.id}
@@ -283,17 +312,33 @@ const App: React.FC = () => {
               )}
             </button>
           ))}
+          
+          <div className="mt-auto pt-4 border-t border-zinc-800/50 flex flex-col gap-2 w-full items-center">
+            <button
+              onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
+              className={`flex items-center transition-all rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900 ${
+                isSidebarExpanded ? 'w-full px-4 py-3 justify-start gap-3' : 'w-12 h-12 justify-center'
+              }`}
+            >
+              {isSidebarExpanded ? <ChevronLeft className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
+              {isSidebarExpanded && <span className="text-sm font-medium whitespace-nowrap">Collapse Menu</span>}
+            </button>
+          </div>
         </div>
 
         <div className={`flex flex-col gap-2 w-full ${isSidebarExpanded ? 'px-2' : 'items-center'}`}>
           <button 
-            onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
-            className={`rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900 transition-all flex items-center gap-3 ${
+            onClick={handleConnectKey}
+            className={`rounded-xl transition-all flex items-center gap-3 ${
               isSidebarExpanded ? 'w-full px-4 py-3 justify-start' : 'w-12 h-12 justify-center'
-            }`}
+            } ${hasApiKey ? 'text-zinc-500 hover:text-zinc-300' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20'}`}
           >
-            {isSidebarExpanded ? <ChevronLeft className="w-5 h-5 shrink-0" /> : <ChevronRight className="w-5 h-5 shrink-0" />}
-            {isSidebarExpanded && <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">Collapse</span>}
+            {hasApiKey ? <Link className="w-5 h-5 shrink-0" /> : <Lock className="w-5 h-5 shrink-0" />}
+            {isSidebarExpanded && (
+              <span className="text-xs font-bold uppercase tracking-widest">
+                {hasApiKey ? 'Core Linked' : 'Link Ninja Core'}
+              </span>
+            )}
           </button>
           
           <button 
