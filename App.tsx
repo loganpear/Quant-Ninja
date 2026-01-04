@@ -16,7 +16,8 @@ import {
   ChevronLeft,
   Globe,
   Lock,
-  Link as LinkIcon
+  Link as LinkIcon,
+  ExternalLink
 } from 'lucide-react';
 import ScannerView from './components/ScannerView';
 import LedgerView from './components/LedgerView';
@@ -36,27 +37,28 @@ const App: React.FC = () => {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
 
-  // --- API Key Handshake (Required for Vercel/Browser SDK) ---
+  // --- API Key Handshake (Mandatory for Hosted/Browser SDK) ---
   useEffect(() => {
-    const checkKey = async () => {
+    const checkKeyStatus = async () => {
       // @ts-ignore
       if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
         // @ts-ignore
-        const hasKey = await window.aistudio.hasSelectedApiKey();
-        setHasApiKey(hasKey);
+        const connected = await window.aistudio.hasSelectedApiKey();
+        setHasApiKey(connected);
       }
     };
-    checkKey();
+    checkKeyStatus();
   }, []);
 
-  const handleConnectKey = async () => {
+  const handleLinkCore = async () => {
     // @ts-ignore
     if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
       // @ts-ignore
       await window.aistudio.openSelectKey();
-      setHasApiKey(true); // Assume success per protocol
+      // Per instructions, assume success after triggering the dialog to avoid race conditions
+      setHasApiKey(true);
     } else {
-      alert("Ninja Core Interface not found in this environment.");
+      alert("AI Studio environment not detected. Ensure you are running in the correct context.");
     }
   };
 
@@ -73,11 +75,11 @@ const App: React.FC = () => {
   const agentTimerRef = useRef<number | null>(null);
   const countdownRef = useRef<number | null>(null);
   
-  const stateRef = useRef({ isAgentScanning, isAgentActive, agentStream, bets });
+  const stateRef = useRef({ isAgentScanning, isAgentActive, agentStream, bets, hasApiKey });
   
   useEffect(() => {
-    stateRef.current = { isAgentScanning, isAgentActive, agentStream, bets };
-  }, [isAgentScanning, isAgentActive, agentStream, bets]);
+    stateRef.current = { isAgentScanning, isAgentActive, agentStream, bets, hasApiKey };
+  }, [isAgentScanning, isAgentActive, agentStream, bets, hasApiKey]);
 
   // --- PERSISTENCE LOGIC ---
   useEffect(() => {
@@ -181,15 +183,15 @@ const App: React.FC = () => {
   }, [bankroll, calculateKellyStake, addAgentLog]);
 
   const performAgentScan = useCallback(async () => {
-    const { isAgentScanning: currentScanning, agentStream: currentStream } = stateRef.current;
-    if (currentScanning || !currentStream || !hiddenVideoRef.current) return;
+    const { isAgentScanning: currentScanning, agentStream: currentStream, hasApiKey: currentKey } = stateRef.current;
     
-    // Safety check for key selection
-    if (!hasApiKey) {
-      addAgentLog("Scanner error: API Key not selected. Please Link Core in sidebar.", "warn");
+    if (!currentKey) {
+      addAgentLog("Scan Aborted: Ninja Core not linked. Check sidebar.", "warn");
       return;
     }
 
+    if (currentScanning || !currentStream || !hiddenVideoRef.current) return;
+    
     const video = hiddenVideoRef.current;
     const canvas = hiddenCanvasRef.current;
     if (video.videoWidth === 0 || video.readyState < 2 || !canvas) return;
@@ -220,22 +222,23 @@ const App: React.FC = () => {
         }
       }
     } catch (e: any) {
-      const errorMsg = e.message || "Connection failed";
-      addAgentLog(`Vision Error: ${errorMsg}`, "warn");
-      if (errorMsg.includes("Requested entity was not found")) {
-        setHasApiKey(false); // Force re-selection
+      const msg = e.message || "API Connection error";
+      addAgentLog(`Vision Error: ${msg}`, "warn");
+      if (msg.includes("Requested entity was not found")) {
+        setHasApiKey(false); // Force re-selection if key is invalid
       }
     } finally {
       setIsAgentScanning(false);
       setNextScanIn(10);
     }
-  }, [addNewBets, addAgentLog, hasApiKey]);
+  }, [addNewBets, addAgentLog]);
 
   const startAgent = async () => {
     if (!hasApiKey) {
-      alert("Please link your API Key using the button in the bottom-left sidebar first.");
+      alert("Ninja Core must be linked before establishing vision. Click 'Link Ninja Core' in the sidebar.");
       return;
     }
+
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: { ideal: 15 }, displaySurface: 'browser' },
@@ -339,16 +342,19 @@ const App: React.FC = () => {
 
         <div className={`flex flex-col gap-2 w-full ${isSidebarExpanded ? 'px-2' : 'items-center'}`}>
           <button 
-            onClick={handleConnectKey}
+            onClick={handleLinkCore}
             className={`rounded-xl transition-all flex items-center gap-3 ${
               isSidebarExpanded ? 'w-full px-4 py-3 justify-start' : 'w-12 h-12 justify-center'
-            } ${hasApiKey ? 'text-emerald-500/60' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20'}`}
+            } ${hasApiKey ? 'text-emerald-500/60' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 animate-pulse'}`}
           >
             {hasApiKey ? <LinkIcon className="w-5 h-5 shrink-0" /> : <Lock className="w-5 h-5 shrink-0" />}
             {isSidebarExpanded && (
-              <span className="text-xs font-bold uppercase tracking-widest">
-                {hasApiKey ? 'Core Linked' : 'Link Ninja Core'}
-              </span>
+              <div className="flex flex-col items-start leading-none">
+                <span className="text-[10px] font-black uppercase tracking-widest">
+                  {hasApiKey ? 'Core Linked' : 'Link Ninja Core'}
+                </span>
+                {!hasApiKey && <span className="text-[8px] text-emerald-500/60 mt-1 uppercase">Click to Authorize</span>}
+              </div>
             )}
           </button>
           
@@ -385,12 +391,20 @@ const App: React.FC = () => {
                 <Power className="w-3 h-3" /> Kill Switch
               </button>
             )}
+            {!hasApiKey && (
+               <div className="flex items-center gap-2 px-3 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-lg text-[9px] font-black uppercase tracking-widest animate-pulse">
+                 <Lock className="w-3 h-3" /> Authentication Pending
+               </div>
+            )}
           </div>
           
           <div className="flex items-center gap-4">
             <div className="flex flex-col items-end">
               <div className="flex items-center gap-3 bg-zinc-900/80 border border-zinc-800 px-4 py-1.5 rounded-full">
-                <Database className="w-3.5 h-3.5 text-zinc-600" title="Local Persistence Active" />
+                {/* Fixed: Lucide icons do not support the 'title' prop. Wrapped in a span to maintain tooltip functionality. */}
+                <span title="Local Persistence Active">
+                  <Database className="w-3.5 h-3.5 text-zinc-600" />
+                </span>
                 <div className="w-[1px] h-4 bg-zinc-800" />
                 <Wallet className="w-4 h-4 text-emerald-500" />
                 <span className="text-sm font-mono font-bold">
@@ -446,6 +460,8 @@ const App: React.FC = () => {
                   isScanning={isAgentScanning}
                   nextScanIn={nextScanIn}
                   onManualScan={performAgentScan}
+                  hasKey={hasApiKey}
+                  onLinkKey={handleLinkCore}
                 />
               )}
             </>
