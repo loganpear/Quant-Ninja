@@ -86,7 +86,7 @@ const LiveAgentView: React.FC<LiveAgentViewProps> = ({
                     <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-zinc-800 flex items-center justify-center text-xs font-black text-emerald-400 border border-zinc-700">02</div>
                     <div className="flex flex-col gap-0.5">
                       <span className="text-xs font-bold text-zinc-100">Establish Link</span>
-                      <span className="text-[11px] leading-relaxed text-zinc-400">Select the <b>"Establish Link"</b> button below and share that specific Chrome tab.</span>
+                      <span className="text-[11px] leading-relaxed text-zinc-400">Select the <b>"Sync Viewport"</b> button below and share that specific Chrome tab.</span>
                     </div>
                   </div>
 
@@ -105,7 +105,7 @@ const LiveAgentView: React.FC<LiveAgentViewProps> = ({
                 className="mt-10 px-12 py-5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl flex items-center gap-4 transition-all active:scale-95 shadow-[0_20px_40px_rgba(16,185,129,0.2)] uppercase tracking-[0.2em] text-[10px] group"
               >
                 <Play className="w-4 h-4 fill-current group-hover:scale-110 transition-transform" /> 
-                Establish Link
+                Sync Viewport
               </button>
             </div>
           )}
