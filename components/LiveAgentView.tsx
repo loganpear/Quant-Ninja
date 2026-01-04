@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Play, Square, Eye, Activity, Terminal, Zap, Camera, Info, Search, ExternalLink, Lock } from 'lucide-react';
+import { Play, Square, Eye, Activity, Terminal, Zap, Camera, Search, ExternalLink } from 'lucide-react';
 
 interface LiveAgentViewProps {
   isCapturing: boolean;
@@ -12,8 +12,6 @@ interface LiveAgentViewProps {
   isScanning: boolean;
   nextScanIn: number;
   onManualScan: () => void;
-  hasKey: boolean;
-  onLinkKey: () => void;
 }
 
 const LiveAgentView: React.FC<LiveAgentViewProps> = ({ 
@@ -25,9 +23,7 @@ const LiveAgentView: React.FC<LiveAgentViewProps> = ({
   lastPreview, 
   isScanning, 
   nextScanIn,
-  onManualScan,
-  hasKey,
-  onLinkKey
+  onManualScan
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [flash, setFlash] = useState(false);
@@ -54,25 +50,7 @@ const LiveAgentView: React.FC<LiveAgentViewProps> = ({
       <div className="lg:col-span-2 flex flex-col gap-6 overflow-y-auto custom-scrollbar pr-2">
         {/* Main Viewport Section */}
         <div className={`bg-zinc-950 border border-zinc-800 rounded-[2.5rem] overflow-hidden relative flex flex-col items-center justify-center shadow-2xl transition-all duration-500 ${isCapturing ? 'aspect-video w-full' : 'min-h-[520px] p-8'}`}>
-          {!hasKey ? (
-            <div className="flex flex-col items-center justify-center text-center w-full max-w-md animate-in fade-in zoom-in duration-500">
-               <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center mb-6 border border-amber-500/20">
-                <Lock className="w-8 h-8 text-amber-500" />
-              </div>
-              <h3 className="text-2xl font-black italic tracking-tighter uppercase mb-4">Core Link Required</h3>
-              <p className="text-zinc-400 text-sm mb-8 leading-relaxed">
-                Browser security prevents Ninja Vision from accessing the AI engine without authorization. 
-                Please link your API core to continue.
-              </p>
-              <button 
-                onClick={onLinkKey}
-                className="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl flex items-center gap-3 transition-all active:scale-95 shadow-lg shadow-emerald-500/20 uppercase tracking-widest text-xs"
-              >
-                Link Ninja Core
-              </button>
-              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="mt-6 text-[10px] text-zinc-600 hover:text-zinc-400 underline underline-offset-4 font-bold uppercase tracking-widest">Billing Documentation</a>
-            </div>
-          ) : isCapturing ? (
+          {isCapturing ? (
             <video 
               ref={videoRef} 
               className="w-full h-full object-contain bg-black" 
@@ -127,7 +105,7 @@ const LiveAgentView: React.FC<LiveAgentViewProps> = ({
                 className="mt-10 px-12 py-5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl flex items-center gap-4 transition-all active:scale-95 shadow-[0_20px_40px_rgba(16,185,129,0.2)] uppercase tracking-[0.2em] text-[10px] group"
               >
                 <Play className="w-4 h-4 fill-current group-hover:scale-110 transition-transform" /> 
-                Sync Viewport
+                Establish Link
               </button>
             </div>
           )}

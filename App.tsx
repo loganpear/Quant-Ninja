@@ -14,10 +14,7 @@ import {
   Database,
   ChevronRight,
   ChevronLeft,
-  Globe,
-  Lock,
-  Link as LinkIcon,
-  ExternalLink
+  Globe
 } from 'lucide-react';
 import ScannerView from './components/ScannerView';
 import LedgerView from './components/LedgerView';
@@ -35,32 +32,6 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
-  const [hasApiKey, setHasApiKey] = useState(false);
-
-  // --- API Key Handshake (Mandatory for Hosted/Browser SDK) ---
-  useEffect(() => {
-    const checkKeyStatus = async () => {
-      // @ts-ignore
-      if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
-        // @ts-ignore
-        const connected = await window.aistudio.hasSelectedApiKey();
-        setHasApiKey(connected);
-      }
-    };
-    checkKeyStatus();
-  }, []);
-
-  const handleLinkCore = async () => {
-    // @ts-ignore
-    if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
-      // @ts-ignore
-      await window.aistudio.openSelectKey();
-      // Per instructions, assume success after triggering the dialog to avoid race conditions
-      setHasApiKey(true);
-    } else {
-      alert("AI Studio environment not detected. Ensure you are running in the correct context.");
-    }
-  };
 
   // --- Background Live Agent State ---
   const [isAgentActive, setIsAgentActive] = useState(false);
@@ -75,11 +46,11 @@ const App: React.FC = () => {
   const agentTimerRef = useRef<number | null>(null);
   const countdownRef = useRef<number | null>(null);
   
-  const stateRef = useRef({ isAgentScanning, isAgentActive, agentStream, bets, hasApiKey });
+  const stateRef = useRef({ isAgentScanning, isAgentActive, agentStream, bets });
   
   useEffect(() => {
-    stateRef.current = { isAgentScanning, isAgentActive, agentStream, bets, hasApiKey };
-  }, [isAgentScanning, isAgentActive, agentStream, bets, hasApiKey]);
+    stateRef.current = { isAgentScanning, isAgentActive, agentStream, bets };
+  }, [isAgentScanning, isAgentActive, agentStream, bets]);
 
   // --- PERSISTENCE LOGIC ---
   useEffect(() => {
@@ -183,13 +154,8 @@ const App: React.FC = () => {
   }, [bankroll, calculateKellyStake, addAgentLog]);
 
   const performAgentScan = useCallback(async () => {
-    const { isAgentScanning: currentScanning, agentStream: currentStream, hasApiKey: currentKey } = stateRef.current;
+    const { isAgentScanning: currentScanning, agentStream: currentStream } = stateRef.current;
     
-    if (!currentKey) {
-      addAgentLog("Scan Aborted: Ninja Core not linked. Check sidebar.", "warn");
-      return;
-    }
-
     if (currentScanning || !currentStream || !hiddenVideoRef.current) return;
     
     const video = hiddenVideoRef.current;
@@ -224,9 +190,6 @@ const App: React.FC = () => {
     } catch (e: any) {
       const msg = e.message || "API Connection error";
       addAgentLog(`Vision Error: ${msg}`, "warn");
-      if (msg.includes("Requested entity was not found")) {
-        setHasApiKey(false); // Force re-selection if key is invalid
-      }
     } finally {
       setIsAgentScanning(false);
       setNextScanIn(10);
@@ -234,11 +197,6 @@ const App: React.FC = () => {
   }, [addNewBets, addAgentLog]);
 
   const startAgent = async () => {
-    if (!hasApiKey) {
-      alert("Ninja Core must be linked before establishing vision. Click 'Link Ninja Core' in the sidebar.");
-      return;
-    }
-
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: { ideal: 15 }, displaySurface: 'browser' },
@@ -247,7 +205,7 @@ const App: React.FC = () => {
       
       setAgentStream(stream);
       setIsAgentActive(true);
-      addAgentLog("Handshake complete. Vision online.", "success");
+      addAgentLog("Establishing vision uplink...", "success");
 
       if (hiddenVideoRef.current) {
         hiddenVideoRef.current.srcObject = stream;
@@ -298,7 +256,7 @@ const App: React.FC = () => {
             <Zap className="text-black w-6 h-6 fill-current" />
           </div>
           {isSidebarExpanded && (
-            <span className="font-bold text-lg tracking-tight italic animate-in fade-in slide-in-from-left-2">QUANT NINJA</span>
+            <span className="font-bold text-lg tracking-tight italic animate-in fade-in slide-in-from-left-2 text-emerald-400">QUANT NINJA</span>
           )}
         </div>
         
@@ -313,7 +271,7 @@ const App: React.FC = () => {
                   : 'w-12 h-12 justify-center'
               } ${
                 activeView === item.id 
-                  ? 'bg-zinc-800 text-emerald-400 border border-zinc-700' 
+                  ? 'bg-zinc-800 text-emerald-400 border border-zinc-700 shadow-lg shadow-emerald-500/5' 
                   : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900 border border-transparent'
               }`}
             >
@@ -342,23 +300,6 @@ const App: React.FC = () => {
 
         <div className={`flex flex-col gap-2 w-full ${isSidebarExpanded ? 'px-2' : 'items-center'}`}>
           <button 
-            onClick={handleLinkCore}
-            className={`rounded-xl transition-all flex items-center gap-3 ${
-              isSidebarExpanded ? 'w-full px-4 py-3 justify-start' : 'w-12 h-12 justify-center'
-            } ${hasApiKey ? 'text-emerald-500/60' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 animate-pulse'}`}
-          >
-            {hasApiKey ? <LinkIcon className="w-5 h-5 shrink-0" /> : <Lock className="w-5 h-5 shrink-0" />}
-            {isSidebarExpanded && (
-              <div className="flex flex-col items-start leading-none">
-                <span className="text-[10px] font-black uppercase tracking-widest">
-                  {hasApiKey ? 'Core Linked' : 'Link Ninja Core'}
-                </span>
-                {!hasApiKey && <span className="text-[8px] text-emerald-500/60 mt-1 uppercase">Click to Authorize</span>}
-              </div>
-            )}
-          </button>
-          
-          <button 
             onClick={() => confirm("Reset all local data?") && (localStorage.removeItem(STORAGE_KEY), window.location.reload())}
             className={`rounded-xl text-zinc-600 hover:text-red-400 hover:bg-red-500/5 transition-all flex items-center gap-3 ${
               isSidebarExpanded ? 'w-full px-4 py-3 justify-start' : 'w-12 h-12 justify-center'
@@ -374,7 +315,7 @@ const App: React.FC = () => {
         <header className="h-16 border-b border-zinc-800 px-8 flex items-center justify-between bg-[#09090b]/50 backdrop-blur-xl z-40">
           <div className="flex items-center gap-6">
             {!isSidebarExpanded && (
-              <h1 className="text-lg font-bold tracking-tight italic">QUANT NINJA</h1>
+              <h1 className="text-lg font-bold tracking-tight italic text-emerald-400">QUANT NINJA</h1>
             )}
             
             <div className="flex items-center gap-3 h-8 px-3 rounded-lg bg-zinc-900/50 border border-zinc-800">
@@ -391,17 +332,11 @@ const App: React.FC = () => {
                 <Power className="w-3 h-3" /> Kill Switch
               </button>
             )}
-            {!hasApiKey && (
-               <div className="flex items-center gap-2 px-3 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-lg text-[9px] font-black uppercase tracking-widest animate-pulse">
-                 <Lock className="w-3 h-3" /> Authentication Pending
-               </div>
-            )}
           </div>
           
           <div className="flex items-center gap-4">
             <div className="flex flex-col items-end">
               <div className="flex items-center gap-3 bg-zinc-900/80 border border-zinc-800 px-4 py-1.5 rounded-full">
-                {/* Fixed: Lucide icons do not support the 'title' prop. Wrapped in a span to maintain tooltip functionality. */}
                 <span title="Local Persistence Active">
                   <Database className="w-3.5 h-3.5 text-zinc-600" />
                 </span>
@@ -460,8 +395,6 @@ const App: React.FC = () => {
                   isScanning={isAgentScanning}
                   nextScanIn={nextScanIn}
                   onManualScan={performAgentScan}
-                  hasKey={hasApiKey}
-                  onLinkKey={handleLinkCore}
                 />
               )}
             </>
